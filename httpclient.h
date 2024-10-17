@@ -6,19 +6,18 @@
 #include <QNetworkRequest>
 #include <QNetworkReply>
 #include <QJsonDocument>
-#include <QJsonObject>
-#include <QJsonArray>
 #include <QUrl>
 #include <QObject>
+#include <QEventLoop>
 
 class HttpClient : public QObject
 {
     Q_OBJECT
 public:
     HttpClient(QObject *parent = nullptr);
-    void makeRequest(const QUrl &url);
-    void handleResponse(QNetworkReply *reply);    void parseJson(const QByteArray &data);
+    QJsonDocument *makeRequest(const QUrl &url); //blokirajuci req
 private:
+    QEventLoop *m_event_loop;
     QNetworkAccessManager *m_manager;
 };
 

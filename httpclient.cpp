@@ -1,41 +1,26 @@
 #include "httpclient.h"
+#include <QEventLoop>
 
 HttpClient::HttpClient(QObject *parent) : QObject(parent) {
     m_manager = new QNetworkAccessManager(this);
+    m_event_loop = new QEventLoop();
 }
 
-void HttpClient::makeRequest(const QUrl &url) {
+QJsonDocument *HttpClient::makeRequest(const QUrl &url) {
     QNetworkRequest request(url);
     QNetworkReply *reply = m_manager->get(request);
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
-        handleResponse(reply);
-    });
-}
 
-void HttpClient::handleResponse(QNetworkReply *reply) {
-    if (reply->error() != QNetworkReply::NoError) {
+    connect(reply, &QNetworkReply::finished, m_event_loop, &QEventLoop::quit);
+    m_event_loop->exec();
+
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray responseData = reply->readAll();
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(responseData);
+        reply->deleteLater();
+        return new QJsonDocument(jsonDoc);
+    } else {
         qDebug() << "Error:" << reply->errorString();
         reply->deleteLater();
-        return;
-    }
-
-    QByteArray responseData = reply->readAll();
-    parseJson(responseData);
-    reply->deleteLater();
-}
-
-void HttpClient::parseJson(const QByteArray &data) {
-    QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
-    if (jsonDoc.isNull()) {
-        qDebug() << "Failed to create JSON doc.";
-        return;
-    }
-
-    if (jsonDoc.isObject()) {
-        QJsonObject jsonObj = jsonDoc.object();
-        qDebug() << "Parsed JSON object:" << jsonObj;
-    } else if (jsonDoc.isArray()) {
-        QJsonArray jsonArray = jsonDoc.array();
-        qDebug() << "Parsed JSON array:" << jsonArray;
+        return nullptr;
     }
 }
